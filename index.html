@@ -142,6 +142,44 @@
       box-shadow: var(--shadow);
     }
 
+    .fight-card.savage {
+      background: linear-gradient(135deg, #d629b8, #22c7e8);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .fight-card.fru {
+      background: linear-gradient(135deg, #1d74f5, #7b2ff2);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .fight-card.uwu {
+      background: linear-gradient(135deg, #2878ff, #f7fbff);
+      border-color: rgba(255, 255, 255, 0.24);
+      color: #071523;
+    }
+
+    .fight-card.ucob {
+      background: linear-gradient(135deg, #f4d35e, #f57c00);
+      border-color: rgba(255, 255, 255, 0.20);
+      color: #211303;
+    }
+
+    .fight-card.dsr {
+      background: linear-gradient(135deg, #c9182b, #ff8a1d);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .fight-card.top {
+      background: linear-gradient(135deg, #050507, #6f2dbd);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .fight-card.tea {
+      background: linear-gradient(135deg, #d8a31a, #fff8db);
+      border-color: rgba(255, 255, 255, 0.24);
+      color: #211803;
+    }
+
     .fight-card h2 {
       margin: 0;
       font-size: 1.15rem;
@@ -158,6 +196,19 @@
       color: var(--muted);
       margin-top: 8px;
       font-size: 1rem;
+    }
+
+    .fight-card.savage .count,
+    .fight-card.fru .count,
+    .fight-card.dsr .count,
+    .fight-card.top .count {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .fight-card.uwu .count,
+    .fight-card.ucob .count,
+    .fight-card.tea .count {
+      color: rgba(0, 0, 0, 0.62);
     }
 
     .empty,
@@ -291,7 +342,7 @@
         const clears = Number(row.clears || 0);
         const rosterSize = Number(row.rosterSize || 0);
         return `
-          <article class="fight-card">
+          <article class="fight-card ${encounterClass(row.encounter)}">
             <h2>${escapeHtml(row.encounter)}</h2>
             <div class="rate">${formatWholePercent(clears, rosterSize)}</div>
             <div class="count">${clears} / ${rosterSize}</div>
@@ -303,6 +354,12 @@
     function formatWholePercent(clears, rosterSize) {
       if (!rosterSize) return "0%";
       return Math.round(clears / rosterSize * 100) + "%";
+    }
+
+    function encounterClass(encounter) {
+      const key = String(encounter || "").toLowerCase();
+      if (/^m\d+s$/.test(key)) return "savage";
+      return key.replace(/[^a-z0-9-]/g, "");
     }
 
     function escapeHtml(value) {
