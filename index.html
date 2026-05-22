@@ -341,7 +341,7 @@
 
       try {
         const endpoint = getApiEndpoint();
-        const payload = await jsonp(endpoint + "?action=dashboard");
+        const payload = await jsonp(endpoint + "?action=summary");
         if (!payload.ok) throw new Error(payload.error || "Dashboard API failed.");
         state.data = payload;
         renderSummary();

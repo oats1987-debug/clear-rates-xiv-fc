@@ -4,7 +4,9 @@ function doGet(e) {
   let result;
 
   try {
-    if (action === 'dashboard') {
+    if (action === 'summary') {
+      result = buildPublicSummaryData();
+    } else if (action === 'dashboard') {
       result = buildPublicDashboardData();
     } else {
       result = { ok: false, error: 'Unknown action.' };
@@ -14,6 +16,51 @@ function doGet(e) {
   }
 
   return publicApiOutput(result, params.callback);
+}
+
+function buildPublicSummaryData() {
+  setupWorkbook();
+
+  const config = getConfig();
+  const workbook = getWorkbook();
+  const snapshotSheet = getOrCreateSheet(workbook, SHEET_SNAPSHOTS, ['snapshot_date', 'encounter', 'clears', 'roster_size', 'clear_rate']);
+  const snapshotValues = snapshotSheet.getDataRange().getValues();
+  const encounterLabels = config.encounters.map(function(encounter) {
+    return encounter.label;
+  });
+  const latestSnapshots = {};
+
+  for (let i = 1; i < snapshotValues.length; i++) {
+    const row = snapshotValues[i];
+    const encounter = String(row[1] || '');
+    if (!encounter) continue;
+
+    latestSnapshots[encounter] = {
+      date: publicDateValue(row[0]),
+      encounter: encounter,
+      clears: Number(row[2] || 0),
+      rosterSize: Number(row[3] || 0),
+      clearRate: String(row[4] || '')
+    };
+  }
+
+  const summary = encounterLabels.map(function(label) {
+    const snapshot = latestSnapshots[label];
+    return snapshot || {
+      date: todayString(),
+      encounter: label,
+      clears: 0,
+      rosterSize: 0,
+      clearRate: '0.00%'
+    };
+  });
+
+  return {
+    ok: true,
+    fcName: config.fcName,
+    generatedAt: publicDateValue(new Date()),
+    summary: summary
+  };
 }
 
 function buildPublicDashboardData() {
