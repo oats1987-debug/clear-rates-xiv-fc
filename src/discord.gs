@@ -7,20 +7,45 @@ function postClearRatesToDiscord(summaryRows) {
 
   requireProperty(config.discordWebhookUrl, 'DISCORD_WEBHOOK_URL');
 
-  const response = UrlFetchApp.fetch(config.discordWebhookUrl, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify({
-      username: 'Across Clears',
-      content: formatDiscordMessage(summaryRows)
-    }),
-    muteHttpExceptions: true
+  const payload = JSON.stringify({
+    username: 'Across Clears',
+    content: formatDiscordMessage(summaryRows)
   });
 
-  const status = response.getResponseCode();
-  if (status < 200 || status >= 300) {
-    throw new Error('Discord webhook failed ' + status + ': ' + response.getContentText());
+  let lastResponse = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    lastResponse = UrlFetchApp.fetch(config.discordWebhookUrl, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+
+    const status = lastResponse.getResponseCode();
+    if (status >= 200 && status < 300) return;
+
+    if (status !== 429 || attempt === 4) break;
+
+    Utilities.sleep(getDiscordRetryDelayMs(lastResponse, attempt));
   }
+
+  throw new Error('Discord webhook failed ' + lastResponse.getResponseCode() + ': ' + lastResponse.getContentText());
+}
+
+function getDiscordRetryDelayMs(response, attempt) {
+  const fallbackMs = Math.min(30000, attempt * 5000);
+  const body = response.getContentText();
+
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && parsed.retry_after) {
+      return Math.ceil(Number(parsed.retry_after) * 1000) + 1000;
+    }
+  } catch (err) {
+    // Cloudflare-style 429 pages are not JSON, so use the fallback delay.
+  }
+
+  return fallbackMs;
 }
 
 function formatDiscordMessage(summaryRows) {
