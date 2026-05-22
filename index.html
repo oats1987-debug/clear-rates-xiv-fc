@@ -288,19 +288,21 @@
 
     function renderSummary() {
       summaryGrid.innerHTML = state.data.summary.map((row) => {
+        const clears = Number(row.clears || 0);
+        const rosterSize = Number(row.rosterSize || 0);
         return `
           <article class="fight-card">
             <h2>${escapeHtml(row.encounter)}</h2>
-            <div class="rate">${formatWholePercent(row.clearRate)}</div>
-            <div class="count">${Number(row.clears || 0)} / ${Number(row.rosterSize || 0)}</div>
+            <div class="rate">${formatWholePercent(clears, rosterSize)}</div>
+            <div class="count">${clears} / ${rosterSize}</div>
           </article>
         `;
       }).join("");
     }
 
-    function formatWholePercent(value) {
-      const number = Number(String(value || "0").replace("%", ""));
-      return Math.round(Number.isFinite(number) ? number : 0) + "%";
+    function formatWholePercent(clears, rosterSize) {
+      if (!rosterSize) return "0%";
+      return Math.round(clears / rosterSize * 100) + "%";
     }
 
     function escapeHtml(value) {
