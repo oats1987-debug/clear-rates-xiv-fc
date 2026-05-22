@@ -11,17 +11,21 @@ This project was built for the Across FC. It uses:
 
 ## Current Status
 
-The project is in the **backfill-first** phase.
+The project is ready to move from the **backfill-first** phase into regular operation.
 
-The main problem being solved is that FFLogs has both hourly quota limits and historical partitions for old ultimates. Large one-shot runs can hit FFLogs `429 Too Many Requests` or Apps Script's runtime limit, so the current plan is to collect data in small hourly batches before turning normal daily reports back on.
+The regular model is:
 
-Current temporary trigger:
+- `collectMissingClearUpdates`: quiet collector that checks a small batch of still-missing clears.
+- `postCurrentClearRatesReport`: reporter that reads `CurrentState`, writes a snapshot, and posts Discord without doing heavy FFLogs collection.
+
+Recommended regular triggers:
 
 | Function | Schedule | Purpose |
 | --- | --- | --- |
-| `backfillUltimateClears` | Hourly | Slowly fills `Evidence` for all tracked fights |
+| `collectMissingClearUpdates` | Hourly | Quietly checks missing clears |
+| `postCurrentClearRatesReport` | Daily, 9-10 AM Pacific | Posts current known clear rates |
 
-Daily and weekly report triggers should stay disabled until backfill has enough coverage.
+The older `runDailyClearRates` function now calls `postCurrentClearRatesReport`.
 
 ## Tracked Fights
 
@@ -49,6 +53,7 @@ Lodestone achievements are intentionally not used for clear evidence because man
 | `Roster` | Roster snapshot rows from Lodestone |
 | `Snapshots` | Clear-rate summary rows by date and encounter |
 | `Evidence` | Raw per-character clear evidence |
+| `CurrentState` | One current row per member/fight derived from `Evidence` |
 | `Runs` | Run log and errors |
 
 Important behavior:
@@ -72,6 +77,7 @@ Recommended during backfill:
 | Property | Suggested value | Purpose |
 | --- | --- | --- |
 | `BACKFILL_BATCH_SIZE` | `10` | Members processed per hourly backfill run |
+| `UPDATE_BATCH_SIZE` | `10` | Members processed per hourly regular update run |
 | `DRY_RUN` | `false` | Report functions post when run; backfill does not post |
 
 Optional:
@@ -92,7 +98,8 @@ Optional:
 7. Run `testFflogsOneCharacter`.
 8. Set `BACKFILL_BATCH_SIZE` to `10`.
 9. Run `resetUltimateBackfill`.
-10. Add an hourly trigger for `backfillUltimateClears`.
+10. Add an hourly trigger for `collectMissingClearUpdates`.
+11. Add a daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
 
 ## Useful Functions
 
@@ -104,19 +111,20 @@ Optional:
 | `checkFflogsRateLimit` | Shows hourly FFLogs quota state, if present in Apps Script |
 | `resetUltimateBackfill` | Resets the backfill cursor to the first tracked fight |
 | `backfillUltimateClears` | Processes the next small batch of missing clears |
-| `runDailyClearRates` | Current collect-and-post daily function; keep disabled during backfill |
-| `runWeeklyClearRates` | Current collect-and-post weekly function; keep disabled during backfill |
+| `collectMissingClearUpdates` | Regular collector for small hourly update batches |
+| `resetUpdateCursor` | Resets the regular update cursor |
+| `postCurrentClearRatesReport` | Posts from `CurrentState` without collecting |
+| `runDailyClearRates` | Alias for `postCurrentClearRatesReport` |
+| `runWeeklyClearRates` | Legacy collect-and-post weekly function; avoid unless deliberately testing |
 
 ## Next Steps
 
-1. Let the hourly `backfillUltimateClears` trigger run for a while.
-2. Watch the `Runs` tab for `OK`, `PAUSED`, or `ERROR` rows.
-3. If FFLogs rate limits happen often, lower `BACKFILL_BATCH_SIZE` from `10` to `5`.
-4. If hourly runs are clean for a day, consider raising `BACKFILL_BATCH_SIZE` to `15`.
-5. Once backfill coverage looks good, split the system into:
-   - collector jobs that only update `Evidence`
-   - reporter jobs that only summarize existing data and post Discord
-6. Restore a daily 9-10 AM Pacific report trigger after the reporter is read-only.
+1. Run `resetUpdateCursor` once.
+2. Keep `collectMissingClearUpdates` running hourly.
+3. Restore the daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
+4. Watch the `Runs` tab for `OK`, `PAUSED`, or `ERROR` rows.
+5. If FFLogs rate limits happen often, lower `UPDATE_BATCH_SIZE` from `10` to `5`.
+6. If hourly runs are clean for a day, consider raising `UPDATE_BATCH_SIZE` to `15`.
 7. Later, add a tier archive function that stores peak tier clear rates before deleting bulky old raw evidence.
 
 ## Known Constraints
@@ -126,4 +134,3 @@ Optional:
 - Old ultimates require FFLogs partition checks.
 - Character renames/transfers can affect FFLogs lookups by name/world.
 - Google Sheets will eventually get large if every evidence row is retained forever.
-

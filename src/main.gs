@@ -39,7 +39,7 @@ function refreshRoster() {
 }
 
 function runDailyClearRates() {
-  return runClearRatesForCadence('daily');
+  return postCurrentClearRatesReport();
 }
 
 function runWeeklyClearRates() {
@@ -99,6 +99,99 @@ function previewDiscordMessage() {
   return formatDiscordMessage(fakeRows);
 }
 
+function collectMissingClearUpdates() {
+  const config = getConfig();
+  const props = PropertiesService.getScriptProperties();
+  const keys = config.encounters.map(function(encounter) {
+    return encounter.key;
+  });
+  const batchSize = Number(props.getProperty('UPDATE_BATCH_SIZE') || props.getProperty('BACKFILL_BATCH_SIZE') || 10);
+  let keyIndex = Number(props.getProperty('UPDATE_KEY_INDEX') || 0);
+  let memberIndex = Number(props.getProperty('UPDATE_MEMBER_INDEX') || 0);
+
+  if (keyIndex >= keys.length) {
+    keyIndex = 0;
+    memberIndex = 0;
+    props.setProperty('UPDATE_KEY_INDEX', '0');
+    props.setProperty('UPDATE_MEMBER_INDEX', '0');
+  }
+
+  const currentKey = keys[keyIndex];
+  setupWorkbook();
+
+  const encounter = config.encounters.filter(function(item) {
+    return item.key === currentKey;
+  })[0];
+  if (!encounter) {
+    throw new Error('Missing encounter for update key: ' + currentKey);
+  }
+
+  const members = fetchLodestoneRoster();
+  const confirmedClearMap = getConfirmedClearMap();
+  const endIndex = Math.min(memberIndex + batchSize, members.length);
+  const newResults = [];
+  let processed = 0;
+
+  for (let i = memberIndex; i < endIndex; i++) {
+    const member = members[i];
+    const confirmedKey = member.lodestoneId + '|' + encounter.label;
+    if (!confirmedClearMap[confirmedKey]) {
+      try {
+        newResults.push(fetchCharacterEncounterClear(member, encounter));
+      } catch (err) {
+        if (String(err.message || err).indexOf('FFLOGS_RATE_LIMIT') !== -1) {
+          appendEvidenceResults(newResults);
+          logRun('PAUSED', withFflogsQuota('Update paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached'));
+          return { paused: true, key: currentKey, memberIndex: i };
+        }
+        newResults.push(makeErrorResultsForMember(member, [encounter], err)[0]);
+      }
+      sleepBetweenRequests();
+    }
+    processed++;
+  }
+
+  appendEvidenceResults(newResults);
+
+  if (endIndex >= members.length) {
+    props.setProperty('UPDATE_KEY_INDEX', String(keyIndex + 1));
+    props.setProperty('UPDATE_MEMBER_INDEX', '0');
+    logRun('OK', withFflogsQuota('Update finished ' + currentKey + ' for ' + members.length + ' members'));
+  } else {
+    props.setProperty('UPDATE_KEY_INDEX', String(keyIndex));
+    props.setProperty('UPDATE_MEMBER_INDEX', String(endIndex));
+    logRun('OK', withFflogsQuota('Update processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1)));
+  }
+
+  return { key: currentKey, processed: processed };
+}
+
+function postCurrentClearRatesReport() {
+  try {
+    setupWorkbook();
+    const config = getConfig();
+    const members = fetchLodestoneRoster();
+    writeRosterSnapshot(members);
+    rebuildCurrentState();
+
+    const summaryRows = buildReportSummaryFromCurrentState(members, config.encounters);
+    writeSnapshotRows(summaryRows);
+    postClearRatesToDiscord(summaryRows);
+    logRun('OK', 'Posted current-state clear rates for ' + members.length + ' members');
+    return summaryRows;
+  } catch (err) {
+    logRun('ERROR', err && err.stack ? err.stack : String(err));
+    throw err;
+  }
+}
+
+function resetUpdateCursor() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('UPDATE_KEY_INDEX');
+  props.deleteProperty('UPDATE_MEMBER_INDEX');
+  Logger.log('Update cursor reset.');
+}
+
 function fetchMemberEncounterClears(member, encounters) {
   return fetchCharacterAllEncounterClears(member, encounters);
 }
@@ -150,7 +243,7 @@ function backfillUltimateClears() {
       } catch (err) {
         if (String(err.message || err).indexOf('FFLOGS_RATE_LIMIT') !== -1) {
           writeClearSnapshot(buildSnapshotResults(members, [encounter], newResults, confirmedClearMap), members.length);
-          logRun('PAUSED', 'Backfill paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached');
+          logRun('PAUSED', withFflogsQuota('Backfill paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached'));
           Logger.log('Backfill paused at ' + currentKey + ' member index ' + i + '. Run again after FFLogs quota resets.');
           return { paused: true, key: currentKey, memberIndex: i };
         }
@@ -167,11 +260,11 @@ function backfillUltimateClears() {
   if (endIndex >= members.length) {
     props.setProperty('BACKFILL_KEY_INDEX', String(keyIndex + 1));
     props.setProperty('BACKFILL_MEMBER_INDEX', '0');
-    logRun('OK', 'Backfill finished ' + currentKey + ' for ' + members.length + ' members');
+    logRun('OK', withFflogsQuota('Backfill finished ' + currentKey + ' for ' + members.length + ' members'));
   } else {
     props.setProperty('BACKFILL_KEY_INDEX', String(keyIndex));
     props.setProperty('BACKFILL_MEMBER_INDEX', String(endIndex));
-    logRun('OK', 'Backfill processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1));
+    logRun('OK', withFflogsQuota('Backfill processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1)));
   }
 
   Logger.log(JSON.stringify({
@@ -189,4 +282,32 @@ function resetUltimateBackfill() {
   props.deleteProperty('BACKFILL_KEY_INDEX');
   props.deleteProperty('BACKFILL_MEMBER_INDEX');
   Logger.log('Ultimate backfill cursor reset.');
+}
+
+function getFflogsRateLimitSummary() {
+  const query =
+    'query {' +
+    '  rateLimitData {' +
+    '    limitPerHour' +
+    '    pointsSpentThisHour' +
+    '    pointsResetIn' +
+    '  }' +
+    '}';
+
+  try {
+    const data = fflogsGraphql(query, {}, '');
+    return data.data.rateLimitData;
+  } catch (err) {
+    return { error: String(err.message || err).slice(0, 200) };
+  }
+}
+
+function withFflogsQuota(message) {
+  const quota = getFflogsRateLimitSummary();
+  if (quota.error) {
+    return message + ' | FFLogs quota unavailable: ' + quota.error;
+  }
+
+  const remaining = Number(quota.limitPerHour || 0) - Number(quota.pointsSpentThisHour || 0);
+  return message + ' | FFLogs quota remaining: ' + remaining + '/' + quota.limitPerHour + ', resets in ' + quota.pointsResetIn + 's';
 }
