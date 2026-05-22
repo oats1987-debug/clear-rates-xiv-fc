@@ -8,6 +8,7 @@ This project was built for the Across FC. It uses:
 - FFLogs for clear evidence.
 - Google Sheets for snapshots and historical records.
 - Discord webhooks for posting summary tables.
+- GitHub Pages for a public clear-rate dashboard.
 
 ## Current Status
 
@@ -150,3 +151,19 @@ Optional:
 - Old ultimates require FFLogs partition checks.
 - Character renames/transfers can affect FFLogs lookups by name/world.
 - Google Sheets will eventually get large if every evidence row is retained forever.
+
+## GitHub Pages Dashboard
+
+This repo includes a static `index.html` dashboard for GitHub Pages. It can read clear-rate data from the private Google Sheet through an Apps Script web app endpoint, so the spreadsheet itself does not need to be published or shared publicly.
+
+Add `src/public-api.gs` to the Apps Script project, then deploy the Apps Script project as a web app:
+
+1. Apps Script > Deploy > New deployment.
+2. Type: Web app.
+3. Execute as: Me.
+4. Who has access: Anyone.
+5. Deploy and copy the web app URL.
+
+The public endpoint only returns dashboard data from `CurrentState` and `Snapshots`; it does not expose FFLogs credentials, script properties, Discord webhook URLs, or raw Apps Script code.
+
+Open the GitHub Pages site and paste the web app URL into the setup box. The URL is saved in browser storage for testing. Later, the URL can be hardcoded into `index.html` by replacing `PASTE_APPS_SCRIPT_WEB_APP_URL_HERE`.

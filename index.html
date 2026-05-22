@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Across Clear Rates</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101417;
+      --panel: #171d21;
+      --panel-2: #20282d;
+      --line: #314047;
+      --text: #f4f7f8;
+      --muted: #9fb0b7;
+      --teal: #64d2c8;
+      --gold: #e9bc62;
+      --rose: #f28f88;
+      --green: #8bd17c;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgba(100, 210, 200, 0.13), transparent 32rem),
+        linear-gradient(215deg, rgba(233, 188, 98, 0.10), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 0 22px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.2rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .status {
+      min-width: 220px;
+      color: var(--muted);
+      text-align: right;
+      font-size: 0.9rem;
+    }
+
+    .setup {
+      margin: 24px 0;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .setup.hidden {
+      display: none;
+    }
+
+    .setup h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+
+    .setup p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    .setup-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      color: var(--text);
+      background: #0d1113;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 11px 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 11px 14px;
+      color: #0c1314;
+      background: var(--teal);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 24px 0 18px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tab {
+      min-width: 54px;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .tab.active {
+      color: #0b1314;
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .fight-card {
+      min-height: 132px;
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .fight-card h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .rate {
+      margin-top: 14px;
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    .count {
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .meter {
+      height: 8px;
+      margin-top: 14px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.10);
+      border-radius: 999px;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--teal), var(--green));
+    }
+
+    .section {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 310px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .search {
+      max-width: 240px;
+      padding: 9px 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      background: rgba(100, 210, 200, 0.15);
+      color: var(--teal);
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .members {
+      list-style: none;
+      margin: 0;
+      padding: 6px 0;
+      max-height: 560px;
+      overflow: auto;
+    }
+
+    .members li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .members li:last-child {
+      border-bottom: 0;
+    }
+
+    .world {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .empty,
+    .error {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    .error {
+      color: var(--rose);
+    }
+
+    @media (max-width: 800px) {
+      header,
+      .toolbar,
+      .panel-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .status {
+        text-align: left;
+      }
+
+      .section,
+      .setup-row {
+        grid-template-columns: 1fr;
+      }
+
+      .search {
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Across Clear Rates</h1>
+        <p class="subtitle">Current FC progression pulled from the clear-rate sheet.</p>
+      </div>
+      <div id="status" class="status">Loading...</div>
+    </header>
+
+    <section id="setup" class="setup hidden">
+      <h2>Connect the dashboard</h2>
+      <p>Paste the deployed Apps Script web app URL. This stays in your browser for testing.</p>
+      <div class="setup-row">
+        <input id="apiInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+        <button id="saveApiButton" type="button">Connect</button>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div id="tabs" class="tabs" aria-label="Encounter filter"></div>
+      <button id="refreshButton" type="button">Refresh</button>
+    </section>
+
+    <section id="summaryGrid" class="grid" aria-label="Clear rate summary"></section>
+
+    <section class="section">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Roster State</h2>
+          <input id="searchInput" class="search" type="search" placeholder="Search members">
+        </div>
+        <div id="memberTable"></div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2 id="clearListTitle">Clears</h2>
+        </div>
+        <ul id="clearList" class="members"></ul>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_API_ENDPOINT = "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE";
+    const API_STORAGE_KEY = "across-clear-rates-api-endpoint";
+
+    const state = {
+      data: null,
+      selectedEncounter: "M12S",
+      search: ""
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const statusEl = $("#status");
+    const setupEl = $("#setup");
+    const apiInput = $("#apiInput");
+    const saveApiButton = $("#saveApiButton");
+    const tabsEl = $("#tabs");
+    const refreshButton = $("#refreshButton");
+    const summaryGrid = $("#summaryGrid");
+    const memberTable = $("#memberTable");
+    const searchInput = $("#searchInput");
+    const clearList = $("#clearList");
+    const clearListTitle = $("#clearListTitle");
+
+    function getApiEndpoint() {
+      const fromUrl = new URLSearchParams(window.location.search).get("api");
+      if (fromUrl) {
+        localStorage.setItem(API_STORAGE_KEY, fromUrl);
+        return fromUrl;
+      }
+
+      const stored = localStorage.getItem(API_STORAGE_KEY);
+      if (stored) return stored;
+      return DEFAULT_API_ENDPOINT;
+    }
+
+    function hasApiEndpoint() {
+      const endpoint = getApiEndpoint();
+      return endpoint && !endpoint.includes("PASTE_APPS_SCRIPT");
+    }
+
+    function jsonp(url) {
+      return new Promise((resolve, reject) => {
+        const callbackName = "acrossClears_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+        const script = document.createElement("script");
+        const separator = url.includes("?") ? "&" : "?";
+
+        window[callbackName] = (payload) => {
+          delete window[callbackName];
+          script.remove();
+          resolve(payload);
+        };
+
+        script.onerror = () => {
+          delete window[callbackName];
+          script.remove();
+          reject(new Error("Could not load dashboard data."));
+        };
+
+        script.src = url + separator + "callback=" + encodeURIComponent(callbackName);
+        document.body.appendChild(script);
+      });
+    }
+
+    async function loadDashboard() {
+      if (!hasApiEndpoint()) {
+        statusEl.textContent = "Needs Apps Script URL";
+        setupEl.classList.remove("hidden");
+        return;
+      }
+
+      setupEl.classList.add("hidden");
+      statusEl.textContent = "Refreshing...";
+
+      try {
+        const endpoint = getApiEndpoint();
+        const payload = await jsonp(endpoint + "?action=dashboard");
+        if (!payload.ok) throw new Error(payload.error || "Dashboard API failed.");
+        state.data = payload;
+        if (!payload.encounters.includes(state.selectedEncounter)) {
+          state.selectedEncounter = payload.encounters[0] || "";
+        }
+        render();
+        statusEl.textContent = "Updated " + payload.generatedAt;
+      } catch (error) {
+        statusEl.textContent = "Load failed";
+        summaryGrid.innerHTML = '<div class="panel error">' + escapeHtml(error.message) + "</div>";
+      }
+    }
+
+    function render() {
+      renderTabs();
+      renderSummary();
+      renderMembers();
+      renderClearList();
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = state.data.encounters.map((encounter) => {
+        const active = encounter === state.selectedEncounter ? " active" : "";
+        return `<button class="tab${active}" type="button" data-encounter="${escapeHtml(encounter)}">${escapeHtml(encounter)}</button>`;
+      }).join("");
+    }
+
+    function renderSummary() {
+      summaryGrid.innerHTML = state.data.summary.map((row) => {
+        const rateNumber = Number(String(row.clearRate).replace("%", "")) || 0;
+        return `
+          <article class="fight-card">
+            <h2>${escapeHtml(row.encounter)}</h2>
+            <div class="rate">${escapeHtml(row.clearRate)}</div>
+            <div class="count">${row.clears} / ${row.rosterSize}</div>
+            <div class="meter"><span style="width:${Math.max(0, Math.min(100, rateNumber))}%"></span></div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderMembers() {
+      const members = state.data.members.filter((member) => {
+        const haystack = `${member.name} ${member.world}`.toLowerCase();
+        return haystack.includes(state.search.toLowerCase());
+      });
+
+      if (!members.length) {
+        memberTable.innerHTML = '<div class="empty">No members match that search.</div>';
+        return;
+      }
+
+      memberTable.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>World</th>
+              <th>${escapeHtml(state.selectedEncounter)}</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${members.map((member) => {
+              const cleared = member.clears[state.selectedEncounter] === true;
+              const total = state.data.encounters.reduce((sum, encounter) => sum + (member.clears[encounter] === true ? 1 : 0), 0);
+              return `
+                <tr>
+                  <td>${escapeHtml(member.name)}</td>
+                  <td>${escapeHtml(member.world)}</td>
+                  <td><span class="pill">${cleared ? "Yes" : "No"}</span></td>
+                  <td>${total}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderClearList() {
+      const clears = state.data.clearsByEncounter[state.selectedEncounter] || [];
+      clearListTitle.textContent = state.selectedEncounter + " Clears";
+
+      if (!clears.length) {
+        clearList.innerHTML = '<li><span class="empty">No confirmed clears yet.</span></li>';
+        return;
+      }
+
+      clearList.innerHTML = clears.map((member) => `
+        <li>
+          <span>${escapeHtml(member.name)}</span>
+          <span class="world">${escapeHtml(member.world)}</span>
+        </li>
+      `).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    tabsEl.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-encounter]");
+      if (!button) return;
+      state.selectedEncounter = button.dataset.encounter;
+      render();
+    });
+
+    searchInput.addEventListener("input", () => {
+      state.search = searchInput.value;
+      renderMembers();
+    });
+
+    refreshButton.addEventListener("click", loadDashboard);
+
+    saveApiButton.addEventListener("click", () => {
+      const value = apiInput.value.trim();
+      if (!value) return;
+      localStorage.setItem(API_STORAGE_KEY, value);
+      loadDashboard();
+    });
+
+    apiInput.value = hasApiEndpoint() ? getApiEndpoint() : "";
+    loadDashboard();
+  </script>
+</body>
+</html>
