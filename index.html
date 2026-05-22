@@ -126,47 +126,19 @@
       font-weight: 700;
     }
 
-    .toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin: 24px 0 18px;
-    }
-
-    .tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .tab {
-      min-width: 54px;
-      color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--line);
-      box-shadow: none;
-    }
-
-    .tab.active {
-      color: #0b1314;
-      background: var(--gold);
-      border-color: var(--gold);
-    }
-
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin: 24px 0 20px;
     }
 
     .fight-card {
-      min-height: 132px;
+      min-height: 142px;
       background: linear-gradient(180deg, var(--panel-2), var(--panel));
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 16px;
+      padding: 18px;
       box-shadow: var(--shadow);
     }
 
@@ -177,124 +149,15 @@
 
     .rate {
       margin-top: 14px;
-      font-size: 2rem;
+      font-size: 2.5rem;
+      line-height: 1;
       font-weight: 800;
     }
 
     .count {
       color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .meter {
-      height: 8px;
-      margin-top: 14px;
-      overflow: hidden;
-      background: rgba(255, 255, 255, 0.10);
-      border-radius: 999px;
-    }
-
-    .meter span {
-      display: block;
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, var(--teal), var(--green));
-    }
-
-    .section {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 310px;
-      gap: 18px;
-      align-items: start;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .panel-head h2 {
-      margin: 0;
+      margin-top: 8px;
       font-size: 1rem;
-    }
-
-    .search {
-      max-width: 240px;
-      padding: 9px 10px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      text-align: left;
-      vertical-align: middle;
-    }
-
-    th {
-      color: var(--muted);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-    }
-
-    tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 30px;
-      height: 24px;
-      border-radius: 999px;
-      padding: 0 9px;
-      background: rgba(100, 210, 200, 0.15);
-      color: var(--teal);
-      font-size: 0.8rem;
-      font-weight: 800;
-    }
-
-    .members {
-      list-style: none;
-      margin: 0;
-      padding: 6px 0;
-      max-height: 560px;
-      overflow: auto;
-    }
-
-    .members li {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px 14px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .members li:last-child {
-      border-bottom: 0;
-    }
-
-    .world {
-      color: var(--muted);
-      white-space: nowrap;
     }
 
     .empty,
@@ -308,9 +171,7 @@
     }
 
     @media (max-width: 800px) {
-      header,
-      .toolbar,
-      .panel-head {
+      header {
         align-items: stretch;
         flex-direction: column;
       }
@@ -319,13 +180,8 @@
         text-align: left;
       }
 
-      .section,
       .setup-row {
         grid-template-columns: 1fr;
-      }
-
-      .search {
-        max-width: none;
       }
     }
   </style>
@@ -349,29 +205,7 @@
       </div>
     </section>
 
-    <section class="toolbar">
-      <div id="tabs" class="tabs" aria-label="Encounter filter"></div>
-      <button id="refreshButton" type="button">Refresh</button>
-    </section>
-
     <section id="summaryGrid" class="grid" aria-label="Clear rate summary"></section>
-
-    <section class="section">
-      <div class="panel">
-        <div class="panel-head">
-          <h2>Roster State</h2>
-          <input id="searchInput" class="search" type="search" placeholder="Search members">
-        </div>
-        <div id="memberTable"></div>
-      </div>
-
-      <aside class="panel">
-        <div class="panel-head">
-          <h2 id="clearListTitle">Clears</h2>
-        </div>
-        <ul id="clearList" class="members"></ul>
-      </aside>
-    </section>
   </main>
 
   <script>
@@ -379,9 +213,7 @@
     const API_STORAGE_KEY = "across-clear-rates-api-endpoint";
 
     const state = {
-      data: null,
-      selectedEncounter: "M12S",
-      search: ""
+      data: null
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -389,13 +221,7 @@
     const setupEl = $("#setup");
     const apiInput = $("#apiInput");
     const saveApiButton = $("#saveApiButton");
-    const tabsEl = $("#tabs");
-    const refreshButton = $("#refreshButton");
     const summaryGrid = $("#summaryGrid");
-    const memberTable = $("#memberTable");
-    const searchInput = $("#searchInput");
-    const clearList = $("#clearList");
-    const clearListTitle = $("#clearListTitle");
 
     function getApiEndpoint() {
       const fromUrl = new URLSearchParams(window.location.search).get("api");
@@ -452,99 +278,29 @@
         const payload = await jsonp(endpoint + "?action=dashboard");
         if (!payload.ok) throw new Error(payload.error || "Dashboard API failed.");
         state.data = payload;
-        if (!payload.encounters.includes(state.selectedEncounter)) {
-          state.selectedEncounter = payload.encounters[0] || "";
-        }
-        render();
+        renderSummary();
         statusEl.textContent = "Updated " + payload.generatedAt;
       } catch (error) {
         statusEl.textContent = "Load failed";
-        summaryGrid.innerHTML = '<div class="panel error">' + escapeHtml(error.message) + "</div>";
+        summaryGrid.innerHTML = '<div class="fight-card error">' + escapeHtml(error.message) + "</div>";
       }
-    }
-
-    function render() {
-      renderTabs();
-      renderSummary();
-      renderMembers();
-      renderClearList();
-    }
-
-    function renderTabs() {
-      tabsEl.innerHTML = state.data.encounters.map((encounter) => {
-        const active = encounter === state.selectedEncounter ? " active" : "";
-        return `<button class="tab${active}" type="button" data-encounter="${escapeHtml(encounter)}">${escapeHtml(encounter)}</button>`;
-      }).join("");
     }
 
     function renderSummary() {
       summaryGrid.innerHTML = state.data.summary.map((row) => {
-        const rateNumber = Number(String(row.clearRate).replace("%", "")) || 0;
         return `
           <article class="fight-card">
             <h2>${escapeHtml(row.encounter)}</h2>
-            <div class="rate">${escapeHtml(row.clearRate)}</div>
-            <div class="count">${row.clears} / ${row.rosterSize}</div>
-            <div class="meter"><span style="width:${Math.max(0, Math.min(100, rateNumber))}%"></span></div>
+            <div class="rate">${formatWholePercent(row.clearRate)}</div>
+            <div class="count">${Number(row.clears || 0)} / ${Number(row.rosterSize || 0)}</div>
           </article>
         `;
       }).join("");
     }
 
-    function renderMembers() {
-      const members = state.data.members.filter((member) => {
-        const haystack = `${member.name} ${member.world}`.toLowerCase();
-        return haystack.includes(state.search.toLowerCase());
-      });
-
-      if (!members.length) {
-        memberTable.innerHTML = '<div class="empty">No members match that search.</div>';
-        return;
-      }
-
-      memberTable.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>World</th>
-              <th>${escapeHtml(state.selectedEncounter)}</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${members.map((member) => {
-              const cleared = member.clears[state.selectedEncounter] === true;
-              const total = state.data.encounters.reduce((sum, encounter) => sum + (member.clears[encounter] === true ? 1 : 0), 0);
-              return `
-                <tr>
-                  <td>${escapeHtml(member.name)}</td>
-                  <td>${escapeHtml(member.world)}</td>
-                  <td><span class="pill">${cleared ? "Yes" : "No"}</span></td>
-                  <td>${total}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function renderClearList() {
-      const clears = state.data.clearsByEncounter[state.selectedEncounter] || [];
-      clearListTitle.textContent = state.selectedEncounter + " Clears";
-
-      if (!clears.length) {
-        clearList.innerHTML = '<li><span class="empty">No confirmed clears yet.</span></li>';
-        return;
-      }
-
-      clearList.innerHTML = clears.map((member) => `
-        <li>
-          <span>${escapeHtml(member.name)}</span>
-          <span class="world">${escapeHtml(member.world)}</span>
-        </li>
-      `).join("");
+    function formatWholePercent(value) {
+      const number = Number(String(value || "0").replace("%", ""));
+      return Math.round(Number.isFinite(number) ? number : 0) + "%";
     }
 
     function escapeHtml(value) {
@@ -555,20 +311,6 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
-
-    tabsEl.addEventListener("click", (event) => {
-      const button = event.target.closest("button[data-encounter]");
-      if (!button) return;
-      state.selectedEncounter = button.dataset.encounter;
-      render();
-    });
-
-    searchInput.addEventListener("input", () => {
-      state.search = searchInput.value;
-      renderMembers();
-    });
-
-    refreshButton.addEventListener("click", loadDashboard);
 
     saveApiButton.addEventListener("click", () => {
       const value = apiInput.value.trim();
