@@ -237,6 +237,7 @@ function postCurrentClearRatesReport() {
 
     const summaryRows = buildReportSummaryFromCurrentState(members, config.encounters);
     writeSnapshotRows(summaryRows);
+    savePublicSummaryData(summaryRows);
     postClearRatesToDiscord(summaryRows);
     logRun('OK', 'Posted current-state clear rates for ' + members.length + ' members');
     return summaryRows;

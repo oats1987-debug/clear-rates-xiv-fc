@@ -1,3 +1,5 @@
+const PUBLIC_SUMMARY_PROPERTY = 'PUBLIC_SUMMARY_JSON';
+
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
   const action = params.action || 'dashboard';
@@ -19,6 +21,11 @@ function doGet(e) {
 }
 
 function buildPublicSummaryData() {
+  const stored = PropertiesService.getScriptProperties().getProperty(PUBLIC_SUMMARY_PROPERTY);
+  if (stored) {
+    return JSON.parse(stored);
+  }
+
   const cached = CacheService.getScriptCache().get('PUBLIC_SUMMARY_DATA');
   if (cached) {
     return JSON.parse(cached);
@@ -68,6 +75,37 @@ function buildPublicSummaryData() {
   };
 
   CacheService.getScriptCache().put('PUBLIC_SUMMARY_DATA', JSON.stringify(result), 300);
+  PropertiesService.getScriptProperties().setProperty(PUBLIC_SUMMARY_PROPERTY, JSON.stringify(result));
+  return result;
+}
+
+function savePublicSummaryData(summaryRows) {
+  const result = {
+    ok: true,
+    fcName: getConfig().fcName,
+    generatedAt: publicDateValue(new Date()),
+    summary: summaryRows.map(function(row) {
+      return {
+        date: row.date || todayString(),
+        encounter: row.encounter,
+        clears: Number(row.clears || 0),
+        rosterSize: Number(row.rosterSize || 0),
+        clearRate: row.rate || row.clearRate || percent(Number(row.clears || 0), Number(row.rosterSize || 0))
+      };
+    })
+  };
+
+  const jsonText = JSON.stringify(result);
+  PropertiesService.getScriptProperties().setProperty(PUBLIC_SUMMARY_PROPERTY, jsonText);
+  CacheService.getScriptCache().put('PUBLIC_SUMMARY_DATA', jsonText, 300);
+  return result;
+}
+
+function refreshPublicSummaryDataFromSnapshots() {
+  PropertiesService.getScriptProperties().deleteProperty(PUBLIC_SUMMARY_PROPERTY);
+  CacheService.getScriptCache().remove('PUBLIC_SUMMARY_DATA');
+  const result = buildPublicSummaryData();
+  Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
 
