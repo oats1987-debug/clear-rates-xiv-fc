@@ -100,20 +100,81 @@ function previewDiscordMessage() {
 }
 
 function collectMissingClearUpdates() {
+  return collectMissingClearUpdatesForKeys({
+    keys: getConfig().encounters.map(function(encounter) { return encounter.key; }),
+    cursorPrefix: 'UPDATE',
+    batchSizeProperty: 'UPDATE_BATCH_SIZE',
+    defaultBatchSize: 10,
+    logLabel: 'Update'
+  });
+}
+
+function collectDailyPriorityClearUpdates() {
+  const results = [];
+  const keys = ['M9S', 'M10S', 'M11S', 'M12S', 'FRU'];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const result = collectMissingClearUpdatesForKeys({
+      keys: [key],
+      cursorPrefix: 'DAILY_' + key,
+      batchSizeProperty: 'DAILY_PRIORITY_BATCH_SIZE',
+      defaultBatchSize: 120,
+      logLabel: 'Daily priority update'
+    });
+    results.push(result);
+    if (result && result.paused) {
+      return { paused: true, results: results };
+    }
+  }
+  return results;
+}
+
+function collectMondayUltimateUpdates() {
+  return collectUltimateUpdatesForKey('UCOB');
+}
+
+function collectTuesdayUltimateUpdates() {
+  return collectUltimateUpdatesForKey('UWU');
+}
+
+function collectWednesdayUltimateUpdates() {
+  return collectUltimateUpdatesForKey('TEA');
+}
+
+function collectThursdayUltimateUpdates() {
+  return collectUltimateUpdatesForKey('DSR');
+}
+
+function collectFridayUltimateUpdates() {
+  return collectUltimateUpdatesForKey('TOP');
+}
+
+function collectUltimateUpdatesForKey(key) {
+  return collectMissingClearUpdatesForKeys({
+    keys: [key],
+    cursorPrefix: 'ULT_' + key,
+    batchSizeProperty: 'ULTIMATE_BATCH_SIZE',
+    defaultBatchSize: 10,
+    logLabel: key + ' rolling update'
+  });
+}
+
+function collectMissingClearUpdatesForKeys(options) {
   const config = getConfig();
   const props = PropertiesService.getScriptProperties();
-  const keys = config.encounters.map(function(encounter) {
-    return encounter.key;
-  });
-  const batchSize = Number(props.getProperty('UPDATE_BATCH_SIZE') || props.getProperty('BACKFILL_BATCH_SIZE') || 10);
-  let keyIndex = Number(props.getProperty('UPDATE_KEY_INDEX') || 0);
-  let memberIndex = Number(props.getProperty('UPDATE_MEMBER_INDEX') || 0);
+  const keys = options.keys;
+  const cursorPrefix = options.cursorPrefix;
+  const keyIndexProperty = cursorPrefix + '_KEY_INDEX';
+  const memberIndexProperty = cursorPrefix + '_MEMBER_INDEX';
+  const batchSize = Number(props.getProperty(options.batchSizeProperty) || props.getProperty('BACKFILL_BATCH_SIZE') || options.defaultBatchSize || 10);
+  let keyIndex = Number(props.getProperty(keyIndexProperty) || 0);
+  let memberIndex = Number(props.getProperty(memberIndexProperty) || 0);
 
   if (keyIndex >= keys.length) {
     keyIndex = 0;
     memberIndex = 0;
-    props.setProperty('UPDATE_KEY_INDEX', '0');
-    props.setProperty('UPDATE_MEMBER_INDEX', '0');
+    props.setProperty(keyIndexProperty, '0');
+    props.setProperty(memberIndexProperty, '0');
   }
 
   const currentKey = keys[keyIndex];
@@ -141,7 +202,7 @@ function collectMissingClearUpdates() {
       } catch (err) {
         if (String(err.message || err).indexOf('FFLOGS_RATE_LIMIT') !== -1) {
           appendEvidenceResults(newResults);
-          logRun('PAUSED', withFflogsQuota('Update paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached'));
+          logRun('PAUSED', withFflogsQuota(options.logLabel + ' paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached'));
           return { paused: true, key: currentKey, memberIndex: i };
         }
         newResults.push(makeErrorResultsForMember(member, [encounter], err)[0]);
@@ -154,13 +215,13 @@ function collectMissingClearUpdates() {
   appendEvidenceResults(newResults);
 
   if (endIndex >= members.length) {
-    props.setProperty('UPDATE_KEY_INDEX', String(keyIndex + 1));
-    props.setProperty('UPDATE_MEMBER_INDEX', '0');
-    logRun('OK', withFflogsQuota('Update finished ' + currentKey + ' for ' + members.length + ' members'));
+    props.setProperty(keyIndexProperty, String(keyIndex + 1));
+    props.setProperty(memberIndexProperty, '0');
+    logRun('OK', withFflogsQuota(options.logLabel + ' finished ' + currentKey + ' for ' + members.length + ' members'));
   } else {
-    props.setProperty('UPDATE_KEY_INDEX', String(keyIndex));
-    props.setProperty('UPDATE_MEMBER_INDEX', String(endIndex));
-    logRun('OK', withFflogsQuota('Update processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1)));
+    props.setProperty(keyIndexProperty, String(keyIndex));
+    props.setProperty(memberIndexProperty, String(endIndex));
+    logRun('OK', withFflogsQuota(options.logLabel + ' processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1)));
   }
 
   return { key: currentKey, processed: processed };
@@ -189,6 +250,14 @@ function resetUpdateCursor() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty('UPDATE_KEY_INDEX');
   props.deleteProperty('UPDATE_MEMBER_INDEX');
+  ['M9S', 'M10S', 'M11S', 'M12S', 'FRU'].forEach(function(key) {
+    props.deleteProperty('DAILY_' + key + '_KEY_INDEX');
+    props.deleteProperty('DAILY_' + key + '_MEMBER_INDEX');
+  });
+  ['UCOB', 'UWU', 'TEA', 'DSR', 'TOP'].forEach(function(key) {
+    props.deleteProperty('ULT_' + key + '_KEY_INDEX');
+    props.deleteProperty('ULT_' + key + '_MEMBER_INDEX');
+  });
   Logger.log('Update cursor reset.');
 }
 

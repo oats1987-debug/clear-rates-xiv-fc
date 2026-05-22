@@ -15,14 +15,20 @@ The project is ready to move from the **backfill-first** phase into regular oper
 
 The regular model is:
 
-- `collectMissingClearUpdates`: quiet collector that checks a small batch of still-missing clears.
+- `collectDailyPriorityClearUpdates`: daily collector for current savage plus the current ultimate.
+- `collectMondayUltimateUpdates` through `collectFridayUltimateUpdates`: quiet rolling collectors for one old ultimate per day.
 - `postCurrentClearRatesReport`: reporter that reads `CurrentState`, writes a snapshot, and posts Discord without doing heavy FFLogs collection.
 
 Recommended regular triggers:
 
 | Function | Schedule | Purpose |
 | --- | --- | --- |
-| `collectMissingClearUpdates` | Hourly | Quietly checks missing clears |
+| `collectDailyPriorityClearUpdates` | Daily, shortly after midnight Pacific | Checks M9S-M12S and FRU missing clears |
+| `collectMondayUltimateUpdates` | Monday, hourly for several hours | Checks UCOB missing clears in batches |
+| `collectTuesdayUltimateUpdates` | Tuesday, hourly for several hours | Checks UWU missing clears in batches |
+| `collectWednesdayUltimateUpdates` | Wednesday, hourly for several hours | Checks TEA missing clears in batches |
+| `collectThursdayUltimateUpdates` | Thursday, hourly for several hours | Checks DSR missing clears in batches |
+| `collectFridayUltimateUpdates` | Friday, hourly for several hours | Checks TOP missing clears in batches |
 | `postCurrentClearRatesReport` | Daily, 9-10 AM Pacific | Posts current known clear rates |
 
 The older `runDailyClearRates` function now calls `postCurrentClearRatesReport`.
@@ -77,7 +83,8 @@ Recommended during backfill:
 | Property | Suggested value | Purpose |
 | --- | --- | --- |
 | `BACKFILL_BATCH_SIZE` | `10` | Members processed per hourly backfill run |
-| `UPDATE_BATCH_SIZE` | `10` | Members processed per hourly regular update run |
+| `DAILY_PRIORITY_BATCH_SIZE` | `120` | Members processed by the daily savage/current-ultimate run |
+| `ULTIMATE_BATCH_SIZE` | `10` | Members processed per old-ultimate batch run |
 | `DRY_RUN` | `false` | Report functions post when run; backfill does not post |
 
 Optional:
@@ -98,8 +105,10 @@ Optional:
 7. Run `testFflogsOneCharacter`.
 8. Set `BACKFILL_BATCH_SIZE` to `10`.
 9. Run `resetUltimateBackfill`.
-10. Add an hourly trigger for `collectMissingClearUpdates`.
-11. Add a daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
+10. Run the backfill until complete.
+11. Run `resetUpdateCursor`.
+12. Add the regular update triggers listed above.
+13. Add a daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
 
 ## Useful Functions
 
@@ -111,7 +120,13 @@ Optional:
 | `checkFflogsRateLimit` | Shows hourly FFLogs quota state, if present in Apps Script |
 | `resetUltimateBackfill` | Resets the backfill cursor to the first tracked fight |
 | `backfillUltimateClears` | Processes the next small batch of missing clears |
-| `collectMissingClearUpdates` | Regular collector for small hourly update batches |
+| `collectDailyPriorityClearUpdates` | Daily collector for M9S-M12S and FRU |
+| `collectMondayUltimateUpdates` | Monday UCOB collector |
+| `collectTuesdayUltimateUpdates` | Tuesday UWU collector |
+| `collectWednesdayUltimateUpdates` | Wednesday TEA collector |
+| `collectThursdayUltimateUpdates` | Thursday DSR collector |
+| `collectFridayUltimateUpdates` | Friday TOP collector |
+| `collectMissingClearUpdates` | Generic collector for all configured fights; keep as fallback |
 | `resetUpdateCursor` | Resets the regular update cursor |
 | `postCurrentClearRatesReport` | Posts from `CurrentState` without collecting |
 | `runDailyClearRates` | Alias for `postCurrentClearRatesReport` |
@@ -120,12 +135,13 @@ Optional:
 ## Next Steps
 
 1. Run `resetUpdateCursor` once.
-2. Keep `collectMissingClearUpdates` running hourly.
-3. Restore the daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
-4. Watch the `Runs` tab for `OK`, `PAUSED`, or `ERROR` rows.
-5. If FFLogs rate limits happen often, lower `UPDATE_BATCH_SIZE` from `10` to `5`.
-6. If hourly runs are clean for a day, consider raising `UPDATE_BATCH_SIZE` to `15`.
-7. Later, add a tier archive function that stores peak tier clear rates before deleting bulky old raw evidence.
+2. Add `collectDailyPriorityClearUpdates` once daily shortly after midnight Pacific.
+3. Add one old-ultimate collector per weekday, hourly for several hours on its assigned day.
+4. Restore the daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
+5. Watch the `Runs` tab for `OK`, `PAUSED`, or `ERROR` rows.
+6. If FFLogs rate limits happen often, lower `ULTIMATE_BATCH_SIZE` from `10` to `5`.
+7. If hourly runs are clean for a day, consider raising `ULTIMATE_BATCH_SIZE` to `15`.
+8. Later, add a tier archive function that stores peak tier clear rates before deleting bulky old raw evidence.
 
 ## Known Constraints
 
