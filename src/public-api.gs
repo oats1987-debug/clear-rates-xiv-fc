@@ -19,6 +19,11 @@ function doGet(e) {
 }
 
 function buildPublicSummaryData() {
+  const cached = CacheService.getScriptCache().get('PUBLIC_SUMMARY_DATA');
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   setupWorkbook();
 
   const config = getConfig();
@@ -55,12 +60,15 @@ function buildPublicSummaryData() {
     };
   });
 
-  return {
+  const result = {
     ok: true,
     fcName: config.fcName,
     generatedAt: publicDateValue(new Date()),
     summary: summary
   };
+
+  CacheService.getScriptCache().put('PUBLIC_SUMMARY_DATA', JSON.stringify(result), 300);
+  return result;
 }
 
 function buildPublicDashboardData() {

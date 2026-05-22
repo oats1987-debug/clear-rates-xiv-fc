@@ -277,6 +277,7 @@
   <script>
     const DEFAULT_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzcjC655hCb63Eb0CpUvDOpomCknfQmPLkvVS0Tebl-PLmrm_q9HEPQv6VUR4N7934u/exec";
     const API_STORAGE_KEY = "across-clear-rates-api-endpoint";
+    const DASHBOARD_CACHE_KEY = "across-clear-rates-dashboard-summary";
 
     const state = {
       data: null
@@ -337,18 +338,36 @@
       }
 
       setupEl.classList.add("hidden");
-      statusEl.textContent = "Refreshing...";
+      renderCachedDashboard();
+      statusEl.textContent = state.data ? "Refreshing..." : "Loading...";
 
       try {
         const endpoint = getApiEndpoint();
         const payload = await jsonp(endpoint + "?action=summary");
         if (!payload.ok) throw new Error(payload.error || "Dashboard API failed.");
         state.data = payload;
+        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
         renderSummary();
         statusEl.textContent = "Updated " + payload.generatedAt;
       } catch (error) {
         statusEl.textContent = "Load failed";
-        summaryGrid.innerHTML = '<div class="fight-card error">' + escapeHtml(error.message) + "</div>";
+        if (!state.data) {
+          summaryGrid.innerHTML = '<div class="fight-card error">' + escapeHtml(error.message) + "</div>";
+        }
+      }
+    }
+
+    function renderCachedDashboard() {
+      if (state.data) return;
+
+      try {
+        const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
+        if (!cached || !cached.summary) return;
+        state.data = cached;
+        renderSummary();
+        statusEl.textContent = "Cached " + cached.generatedAt;
+      } catch (error) {
+        localStorage.removeItem(DASHBOARD_CACHE_KEY);
       }
     }
 
