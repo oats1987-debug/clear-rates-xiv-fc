@@ -130,7 +130,22 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 14px;
-      margin: 24px 0 20px;
+      margin: 12px 0 28px;
+    }
+
+    .fight-section {
+      margin-top: 28px;
+    }
+
+    .fight-section h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+
+    .section-rule {
+      height: 1px;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.10);
     }
 
     .fight-card {
@@ -180,7 +195,7 @@
       color: #211803;
     }
 
-    .fight-card h2 {
+    .fight-card h3 {
       margin: 0;
       font-size: 1.15rem;
     }
@@ -256,7 +271,7 @@
       </div>
     </section>
 
-    <section id="summaryGrid" class="grid" aria-label="Clear rate summary"></section>
+    <div id="summaryGrid" aria-label="Clear rate summary"></div>
   </main>
 
   <script>
@@ -338,17 +353,33 @@
     }
 
     function renderSummary() {
-      summaryGrid.innerHTML = state.data.summary.map((row) => {
+      const groups = [
+        { label: "Savage", rows: state.data.summary.filter((row) => /^M\d+S$/.test(String(row.encounter))) },
+        { label: "Current Ultimate", rows: state.data.summary.filter((row) => row.encounter === "FRU") },
+        { label: "Past Ultimates", rows: state.data.summary.filter((row) => ["UCOB", "UWU", "TEA", "DSR", "TOP"].includes(row.encounter)) }
+      ];
+
+      summaryGrid.innerHTML = groups.map((group) => `
+        <section class="fight-section">
+          <h2>${escapeHtml(group.label)}</h2>
+          <div class="section-rule"></div>
+          <div class="grid">
+            ${group.rows.map(renderFightCard).join("")}
+          </div>
+        </section>
+      `).join("");
+    }
+
+    function renderFightCard(row) {
         const clears = Number(row.clears || 0);
         const rosterSize = Number(row.rosterSize || 0);
         return `
           <article class="fight-card ${encounterClass(row.encounter)}">
-            <h2>${escapeHtml(row.encounter)}</h2>
+            <h3>${escapeHtml(row.encounter)}</h3>
             <div class="rate">${formatWholePercent(clears, rosterSize)}</div>
             <div class="count">${clears} / ${rosterSize}</div>
           </article>
         `;
-      }).join("");
     }
 
     function formatWholePercent(clears, rosterSize) {
