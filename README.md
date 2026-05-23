@@ -164,6 +164,6 @@ Add `src/public-api.gs` to the Apps Script project, then deploy the Apps Script 
 4. Who has access: Anyone.
 5. Deploy and copy the web app URL.
 
-The public endpoint only returns dashboard data from `CurrentState` and `Snapshots`; it does not expose FFLogs credentials, script properties, Discord webhook URLs, or raw Apps Script code.
+The public endpoint only returns the small summary JSON used by the dashboard: fight label, clear count, roster size, clear rate, FC name, and generated timestamp. It does not expose member rosters, per-member clear data, FFLogs credentials, script properties, Discord webhook URLs, or raw Apps Script code.
 
 Open the GitHub Pages site and paste the web app URL into the setup box. The URL is saved in browser storage for testing. Later, the URL can be hardcoded into `index.html` by replacing `PASTE_APPS_SCRIPT_WEB_APP_URL_HERE`.
