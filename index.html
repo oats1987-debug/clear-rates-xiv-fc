@@ -133,6 +133,10 @@
       margin: 12px 0 28px;
     }
 
+    .grid.single-tile {
+      grid-template-columns: minmax(190px, 360px);
+    }
+
     .fight-section {
       margin-top: 28px;
     }
@@ -359,7 +363,7 @@
     function renderSummary() {
       const groups = [
         { label: "Savage", rows: state.data.summary.filter((row) => /^M\d+S$/.test(String(row.encounter))) },
-        { label: "Current Ultimate", rows: state.data.summary.filter((row) => row.encounter === "FRU") },
+        { label: "Current Ultimate", layout: "single-tile", rows: state.data.summary.filter((row) => row.encounter === "FRU") },
         { label: "Past Ultimates", rows: state.data.summary.filter((row) => ["UCOB", "UWU", "TEA", "DSR", "TOP"].includes(row.encounter)) }
       ];
 
@@ -367,7 +371,7 @@
         <section class="fight-section">
           <h2>${escapeHtml(group.label)}</h2>
           <div class="section-rule"></div>
-          <div class="grid">
+          <div class="grid ${escapeHtml(group.layout || "")}">
             ${group.rows.map(renderFightCard).join("")}
           </div>
         </section>
