@@ -94,6 +94,8 @@ Optional:
 | --- | --- | --- |
 | `FC_LODESTONE_ID` | `9236460623271944812` | Across FC Lodestone ID |
 | `SHEET_ID` | Active spreadsheet | Use if Apps Script is detached from the sheet |
+| `COLLECTOR_MAX_RUNTIME_MS` | `300000` | Collector self-stop time; keeps runs under Apps Script's six-minute limit |
+| `COLLECTOR_MIN_CHECK_TIME_MS` | `90000` | Safety buffer before starting another FFLogs check |
 
 ## Setup
 

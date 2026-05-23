@@ -110,23 +110,13 @@ function collectMissingClearUpdates() {
 }
 
 function collectDailyPriorityClearUpdates() {
-  const results = [];
-  const keys = ['M9S', 'M10S', 'M11S', 'M12S', 'FRU'];
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    const result = collectMissingClearUpdatesForKeys({
-      keys: [key],
-      cursorPrefix: 'DAILY_' + key,
-      batchSizeProperty: 'DAILY_PRIORITY_BATCH_SIZE',
-      defaultBatchSize: 120,
-      logLabel: 'Daily priority update'
-    });
-    results.push(result);
-    if (result && result.paused) {
-      return { paused: true, results: results };
-    }
-  }
-  return results;
+  return collectMissingClearUpdatesForKeys({
+    keys: ['M9S', 'M10S', 'M11S', 'M12S', 'FRU'],
+    cursorPrefix: 'DAILY_PRIORITY',
+    batchSizeProperty: 'DAILY_PRIORITY_BATCH_SIZE',
+    defaultBatchSize: 30,
+    logLabel: 'Daily priority update'
+  });
 }
 
 function collectMondayUltimateUpdates() {
@@ -167,6 +157,9 @@ function collectMissingClearUpdatesForKeys(options) {
   const keyIndexProperty = cursorPrefix + '_KEY_INDEX';
   const memberIndexProperty = cursorPrefix + '_MEMBER_INDEX';
   const batchSize = Number(props.getProperty(options.batchSizeProperty) || props.getProperty('BACKFILL_BATCH_SIZE') || options.defaultBatchSize || 10);
+  const maxRuntimeMs = Number(props.getProperty('COLLECTOR_MAX_RUNTIME_MS') || options.maxRuntimeMs || 300000);
+  const minCheckTimeMs = Number(props.getProperty('COLLECTOR_MIN_CHECK_TIME_MS') || options.minCheckTimeMs || 90000);
+  const deadlineMs = Date.now() + maxRuntimeMs;
   let keyIndex = Number(props.getProperty(keyIndexProperty) || 0);
   let memberIndex = Number(props.getProperty(memberIndexProperty) || 0);
 
@@ -177,54 +170,91 @@ function collectMissingClearUpdatesForKeys(options) {
     props.setProperty(memberIndexProperty, '0');
   }
 
-  const currentKey = keys[keyIndex];
   setupWorkbook();
-
-  const encounter = config.encounters.filter(function(item) {
-    return item.key === currentKey;
-  })[0];
-  if (!encounter) {
-    throw new Error('Missing encounter for update key: ' + currentKey);
-  }
 
   const members = fetchLodestoneRoster();
   const confirmedClearMap = getConfirmedClearMap();
-  const endIndex = Math.min(memberIndex + batchSize, members.length);
   const newResults = [];
+  let attempts = 0;
   let processed = 0;
 
-  for (let i = memberIndex; i < endIndex; i++) {
-    const member = members[i];
-    const confirmedKey = member.lodestoneId + '|' + encounter.label;
-    if (!confirmedClearMap[confirmedKey]) {
+  while (keyIndex < keys.length) {
+    const currentKey = keys[keyIndex];
+    const encounter = config.encounters.filter(function(item) {
+      return item.key === currentKey;
+    })[0];
+    if (!encounter) {
+      throw new Error('Missing encounter for update key: ' + currentKey);
+    }
+
+    const startedAtMemberIndex = memberIndex;
+
+    while (memberIndex < members.length) {
+      if (Date.now() >= deadlineMs) {
+        appendEvidenceResults(newResults);
+        props.setProperty(keyIndexProperty, String(keyIndex));
+        props.setProperty(memberIndexProperty, String(memberIndex));
+        logRun('PAUSED', withFflogsQuota(options.logLabel + ' paused before timeout at ' + currentKey + ' member index ' + memberIndex + ' after ' + attempts + ' FFLogs checks'));
+        return { paused: true, reason: 'time-limit', key: currentKey, memberIndex: memberIndex, processed: processed, attempts: attempts };
+      }
+
+      if (attempts >= batchSize) {
+        appendEvidenceResults(newResults);
+        props.setProperty(keyIndexProperty, String(keyIndex));
+        props.setProperty(memberIndexProperty, String(memberIndex));
+        logRun('OK', withFflogsQuota(options.logLabel + ' processed ' + currentKey + ' members ' + startedAtMemberIndex + '-' + (memberIndex - 1) + ' with ' + attempts + ' FFLogs checks'));
+        return { key: currentKey, processed: processed, attempts: attempts };
+      }
+
+      const member = members[memberIndex];
+      const confirmedKey = member.lodestoneId + '|' + encounter.label;
+      if (confirmedClearMap[confirmedKey]) {
+        memberIndex++;
+        processed++;
+        continue;
+      }
+
+      if (Date.now() + minCheckTimeMs >= deadlineMs) {
+        appendEvidenceResults(newResults);
+        props.setProperty(keyIndexProperty, String(keyIndex));
+        props.setProperty(memberIndexProperty, String(memberIndex));
+        logRun('PAUSED', withFflogsQuota(options.logLabel + ' paused before starting another FFLogs check at ' + currentKey + ' member index ' + memberIndex + ' to avoid timeout'));
+        return { paused: true, reason: 'time-buffer', key: currentKey, memberIndex: memberIndex, processed: processed, attempts: attempts };
+      }
+
       try {
         newResults.push(fetchCharacterEncounterClear(member, encounter));
+        attempts++;
       } catch (err) {
         if (String(err.message || err).indexOf('FFLOGS_RATE_LIMIT') !== -1) {
           appendEvidenceResults(newResults);
-          logRun('PAUSED', withFflogsQuota(options.logLabel + ' paused at ' + currentKey + ' member index ' + i + ' because FFLogs rate limit was reached'));
-          return { paused: true, key: currentKey, memberIndex: i };
+          props.setProperty(keyIndexProperty, String(keyIndex));
+          props.setProperty(memberIndexProperty, String(memberIndex));
+          logRun('PAUSED', withFflogsQuota(options.logLabel + ' paused at ' + currentKey + ' member index ' + memberIndex + ' because FFLogs rate limit was reached'));
+          return { paused: true, reason: 'rate-limit', key: currentKey, memberIndex: memberIndex, processed: processed, attempts: attempts };
         }
         newResults.push(makeErrorResultsForMember(member, [encounter], err)[0]);
+        attempts++;
       }
+      memberIndex++;
+      processed++;
       sleepBetweenRequests();
     }
-    processed++;
+
+    appendEvidenceResults(newResults);
+    newResults.length = 0;
+    logRun('OK', withFflogsQuota(options.logLabel + ' finished ' + currentKey + ' for ' + members.length + ' members with ' + attempts + ' FFLogs checks this run'));
+    props.setProperty(keyIndexProperty, String(keyIndex + 1));
+    props.setProperty(memberIndexProperty, '0');
+    keyIndex++;
+    memberIndex = 0;
   }
 
   appendEvidenceResults(newResults);
-
-  if (endIndex >= members.length) {
-    props.setProperty(keyIndexProperty, String(keyIndex + 1));
-    props.setProperty(memberIndexProperty, '0');
-    logRun('OK', withFflogsQuota(options.logLabel + ' finished ' + currentKey + ' for ' + members.length + ' members'));
-  } else {
-    props.setProperty(keyIndexProperty, String(keyIndex));
-    props.setProperty(memberIndexProperty, String(endIndex));
-    logRun('OK', withFflogsQuota(options.logLabel + ' processed ' + currentKey + ' members ' + memberIndex + '-' + (endIndex - 1)));
-  }
-
-  return { key: currentKey, processed: processed };
+  props.setProperty(keyIndexProperty, '0');
+  props.setProperty(memberIndexProperty, '0');
+  logRun('OK', withFflogsQuota(options.logLabel + ' completed all configured fights with ' + attempts + ' FFLogs checks this run'));
+  return { complete: true, processed: processed, attempts: attempts };
 }
 
 function postCurrentClearRatesReport() {
@@ -251,6 +281,8 @@ function resetUpdateCursor() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty('UPDATE_KEY_INDEX');
   props.deleteProperty('UPDATE_MEMBER_INDEX');
+  props.deleteProperty('DAILY_PRIORITY_KEY_INDEX');
+  props.deleteProperty('DAILY_PRIORITY_MEMBER_INDEX');
   ['M9S', 'M10S', 'M11S', 'M12S', 'FRU'].forEach(function(key) {
     props.deleteProperty('DAILY_' + key + '_KEY_INDEX');
     props.deleteProperty('DAILY_' + key + '_MEMBER_INDEX');
