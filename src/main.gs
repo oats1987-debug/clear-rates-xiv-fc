@@ -139,6 +139,38 @@ function collectFridayUltimateUpdates() {
   return collectUltimateUpdatesForKey('TOP');
 }
 
+function collectScheduledUltimateUpdates() {
+  const scheduledKey = getScheduledUltimateKey_();
+  if (!scheduledKey) {
+    return { skipped: true };
+  }
+  return collectUltimateUpdatesForKey(scheduledKey);
+}
+
+function getScheduledUltimateKey_() {
+  const config = getConfig();
+  const props = PropertiesService.getScriptProperties();
+  const now = new Date();
+  const day = Utilities.formatDate(now, config.timezone, 'EEE').toUpperCase();
+  const hour = Number(Utilities.formatDate(now, config.timezone, 'H'));
+  const startHour = Number(props.getProperty('ULTIMATE_WINDOW_START_HOUR') || 0);
+  const endHour = Number(props.getProperty('ULTIMATE_WINDOW_END_HOUR') || 8);
+
+  if (hour < startHour || hour >= endHour) {
+    return '';
+  }
+
+  const schedule = {
+    MON: 'UCOB',
+    TUE: 'UWU',
+    WED: 'TEA',
+    THU: 'DSR',
+    FRI: 'TOP'
+  };
+
+  return schedule[day] || '';
+}
+
 function collectUltimateUpdatesForKey(key) {
   return collectMissingClearUpdatesForKeys({
     keys: [key],

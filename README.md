@@ -17,7 +17,7 @@ The project is ready to move from the **backfill-first** phase into regular oper
 The regular model is:
 
 - `collectDailyPriorityClearUpdates`: daily collector for current savage plus the current ultimate.
-- `collectMondayUltimateUpdates` through `collectFridayUltimateUpdates`: quiet rolling collectors for one old ultimate per day.
+- `collectScheduledUltimateUpdates`: hourly old-ultimate collector that only runs during the configured overnight window and maps each weekday to one ultimate.
 - `postCurrentClearRatesReport`: reporter that reads `CurrentState`, writes a snapshot, and posts Discord without doing heavy FFLogs collection.
 
 Recommended regular triggers:
@@ -25,12 +25,18 @@ Recommended regular triggers:
 | Function | Schedule | Purpose |
 | --- | --- | --- |
 | `collectDailyPriorityClearUpdates` | Daily, shortly after midnight Pacific | Checks M9S-M12S and FRU missing clears |
-| `collectMondayUltimateUpdates` | Monday, hourly for several hours | Checks UCOB missing clears in batches |
-| `collectTuesdayUltimateUpdates` | Tuesday, hourly for several hours | Checks UWU missing clears in batches |
-| `collectWednesdayUltimateUpdates` | Wednesday, hourly for several hours | Checks TEA missing clears in batches |
-| `collectThursdayUltimateUpdates` | Thursday, hourly for several hours | Checks DSR missing clears in batches |
-| `collectFridayUltimateUpdates` | Friday, hourly for several hours | Checks TOP missing clears in batches |
+| `collectScheduledUltimateUpdates` | Hourly | Checks one old ultimate per weekday, only during the configured overnight window |
 | `postCurrentClearRatesReport` | Daily, 9-10 AM Pacific | Posts current known clear rates |
+
+Old-ultimate schedule:
+
+| Day | Fight |
+| --- | --- |
+| Monday | `UCOB` |
+| Tuesday | `UWU` |
+| Wednesday | `TEA` |
+| Thursday | `DSR` |
+| Friday | `TOP` |
 
 The older `runDailyClearRates` function now calls `postCurrentClearRatesReport`.
 
@@ -84,8 +90,8 @@ Recommended during backfill:
 | Property | Suggested value | Purpose |
 | --- | --- | --- |
 | `BACKFILL_BATCH_SIZE` | `10` | Members processed per hourly backfill run |
-| `DAILY_PRIORITY_BATCH_SIZE` | `120` | Members processed by the daily savage/current-ultimate run |
-| `ULTIMATE_BATCH_SIZE` | `10` | Members processed per old-ultimate batch run |
+| `DAILY_PRIORITY_BATCH_SIZE` | `30` | FFLogs checks processed by the daily savage/current-ultimate run |
+| `ULTIMATE_BATCH_SIZE` | `10` | FFLogs checks processed per old-ultimate hourly run |
 | `DRY_RUN` | `false` | Report functions post when run; backfill does not post |
 
 Optional:
@@ -96,6 +102,8 @@ Optional:
 | `SHEET_ID` | Active spreadsheet | Use if Apps Script is detached from the sheet |
 | `COLLECTOR_MAX_RUNTIME_MS` | `300000` | Collector self-stop time; keeps runs under Apps Script's six-minute limit |
 | `COLLECTOR_MIN_CHECK_TIME_MS` | `90000` | Safety buffer before starting another FFLogs check |
+| `ULTIMATE_WINDOW_START_HOUR` | `0` | First Pacific-time hour when scheduled ultimate checks may run |
+| `ULTIMATE_WINDOW_END_HOUR` | `8` | First Pacific-time hour when scheduled ultimate checks stop running |
 
 ## Setup
 
@@ -124,6 +132,7 @@ Optional:
 | `resetUltimateBackfill` | Resets the backfill cursor to the first tracked fight |
 | `backfillUltimateClears` | Processes the next small batch of missing clears |
 | `collectDailyPriorityClearUpdates` | Daily collector for M9S-M12S and FRU |
+| `collectScheduledUltimateUpdates` | Hourly old-ultimate scheduler; Monday-Friday overnight only |
 | `collectMondayUltimateUpdates` | Monday UCOB collector |
 | `collectTuesdayUltimateUpdates` | Tuesday UWU collector |
 | `collectWednesdayUltimateUpdates` | Wednesday TEA collector |
@@ -139,7 +148,7 @@ Optional:
 
 1. Run `resetUpdateCursor` once.
 2. Add `collectDailyPriorityClearUpdates` once daily shortly after midnight Pacific.
-3. Add one old-ultimate collector per weekday, hourly for several hours on its assigned day.
+3. Add `collectScheduledUltimateUpdates` hourly.
 4. Restore the daily 9-10 AM Pacific trigger for `postCurrentClearRatesReport`.
 5. Watch the `Runs` tab for `OK`, `PAUSED`, or `ERROR` rows.
 6. If FFLogs rate limits happen often, lower `ULTIMATE_BATCH_SIZE` from `10` to `5`.
