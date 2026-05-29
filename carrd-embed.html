@@ -186,7 +186,7 @@
         <h1 class="acr-title">Across Clear Rates</h1>
         <p class="acr-subtitle">Current FC progression pulled from the clear-rate sheet.</p>
       </div>
-      <div id="acrStatus" class="acr-status">Loading...</div>
+      <div id="acrStatus" class="acr-status">JavaScript did not start</div>
     </header>
 
     <div id="acrSummaryGrid" aria-label="Clear rate summary"></div>
@@ -195,10 +195,10 @@
 
 <script>
   (function() {
-    const DEFAULT_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzcjC655hCb63Eb0CpUvDOpomCknfQmPLkvVS0Tebl-PLmrm_q9HEPQv6VUR4N7934u/exec";
-    const DASHBOARD_CACHE_KEY = "across-clear-rates-carrd-summary";
-    const ASSET_BASE_URL = "https://oats1987-debug.github.io/clear-rates-xiv-fc/assets/thumbnails/";
-    const THUMBNAILS = {
+    var DEFAULT_API_ENDPOINT = "https://script.google.com/macros/s/AKfycbzcjC655hCb63Eb0CpUvDOpomCknfQmPLkvVS0Tebl-PLmrm_q9HEPQv6VUR4N7934u/exec";
+    var DASHBOARD_CACHE_KEY = "across-clear-rates-carrd-summary";
+    var ASSET_BASE_URL = "https://oats1987-debug.github.io/clear-rates-xiv-fc/assets/thumbnails/";
+    var THUMBNAILS = {
       M9S: ASSET_BASE_URL + "M9S.jpg",
       M10S: ASSET_BASE_URL + "M10S.jpg",
       M11S: ASSET_BASE_URL + "M11S.jpg",
@@ -211,49 +211,83 @@
       TOP: ASSET_BASE_URL + "TOP.jpg"
     };
 
-    const statusEl = document.getElementById("acrStatus");
-    const summaryGrid = document.getElementById("acrSummaryGrid");
-    const state = { data: null };
+    var statusEl = document.getElementById("acrStatus");
+    var summaryGrid = document.getElementById("acrSummaryGrid");
+    var state = { data: null };
 
-    function jsonp(url) {
-      return new Promise((resolve, reject) => {
-        const callbackName = "acrossClears_" + Date.now() + "_" + Math.random().toString(16).slice(2);
-        const script = document.createElement("script");
-        const separator = url.includes("?") ? "&" : "?";
+    if (!statusEl || !summaryGrid) return;
 
-        window[callbackName] = (payload) => {
-          delete window[callbackName];
-          script.remove();
-          resolve(payload);
-        };
+    setStatus("Script started");
 
-        script.onerror = () => {
-          delete window[callbackName];
-          script.remove();
-          reject(new Error("Could not load dashboard data."));
-        };
-
-        script.src = url + separator + "callback=" + encodeURIComponent(callbackName);
-        document.body.appendChild(script);
-      });
+    function setStatus(message) {
+      statusEl.textContent = message;
     }
 
-    async function loadDashboard() {
-      renderCachedDashboard();
-      statusEl.textContent = state.data ? "Refreshing..." : "Loading...";
+    function loadJsonp(url, onSuccess, onError) {
+      var callbackName = "acrossClears_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+      var script = document.createElement("script");
+      var separator = url.indexOf("?") === -1 ? "?" : "&";
+      var finished = false;
+      var timeout = window.setTimeout(function() {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        onError(new Error("Apps Script did not answer within 15 seconds."));
+      }, 15000);
 
-      try {
-        const payload = await jsonp(DEFAULT_API_ENDPOINT + "?action=summary");
-        if (!payload.ok) throw new Error(payload.error || "Dashboard API failed.");
-        state.data = payload;
-        localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
-        renderSummary();
-        statusEl.textContent = "Updated " + payload.generatedAt;
-      } catch (error) {
-        statusEl.textContent = "Load failed";
-        if (!state.data) {
-          summaryGrid.innerHTML = '<div class="acr-card acr-error">' + escapeHtml(error.message) + "</div>";
+      function cleanup() {
+        window.clearTimeout(timeout);
+        try { delete window[callbackName]; } catch (error) { window[callbackName] = undefined; }
+        if (script.parentNode) {
+          script.remove();
         }
+      }
+
+      window[callbackName] = function(payload) {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        onSuccess(payload);
+      };
+
+      script.onerror = function() {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        onError(new Error("Browser blocked or failed the Apps Script request."));
+      };
+
+      script.async = true;
+      script.src = url + separator + "callback=" + encodeURIComponent(callbackName) + "&_=" + Date.now();
+      (document.head || document.body).appendChild(script);
+    }
+
+    function loadDashboard() {
+      renderCachedDashboard();
+      setStatus(state.data ? "Refreshing..." : "Requesting Apps Script...");
+
+      loadJsonp(DEFAULT_API_ENDPOINT + "?action=summary", function(payload) {
+        if (!payload || !payload.ok) {
+          showError(new Error((payload && payload.error) || "Dashboard API failed."));
+          return;
+        }
+
+        state.data = payload;
+        renderSummary();
+        setStatus("Updated " + payload.generatedAt);
+
+        try {
+          localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
+        } catch (error) {
+          // Carrd/browser privacy settings can block localStorage. The dashboard still works without it.
+        }
+      }, showError);
+    }
+
+    function showError(error) {
+      setStatus("Load failed");
+      if (!state.data) {
+        summaryGrid.innerHTML = '<div class="acr-card acr-error">' + escapeHtml(error.message) + "</div>";
       }
     }
 
@@ -261,45 +295,49 @@
       if (state.data) return;
 
       try {
-        const cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
+        var cached = JSON.parse(localStorage.getItem(DASHBOARD_CACHE_KEY) || "null");
         if (!cached || !cached.summary) return;
         state.data = cached;
         renderSummary();
-        statusEl.textContent = "Cached " + cached.generatedAt;
+        setStatus("Cached " + cached.generatedAt);
       } catch (error) {
-        localStorage.removeItem(DASHBOARD_CACHE_KEY);
+        try {
+          localStorage.removeItem(DASHBOARD_CACHE_KEY);
+        } catch (storageError) {
+          // Ignore storage cleanup failures.
+        }
       }
     }
 
     function renderSummary() {
-      const groups = [
-        { label: "Savage", rows: state.data.summary.filter((row) => /^M\d+S$/.test(String(row.encounter))) },
-        { label: "Current Ultimate", layout: "acr-single-tile", rows: state.data.summary.filter((row) => row.encounter === "FRU") },
-        { label: "Past Ultimates", rows: state.data.summary.filter((row) => ["UCOB", "UWU", "TEA", "DSR", "TOP"].includes(row.encounter)) }
+      var groups = [
+        { label: "Savage", rows: state.data.summary.filter(function(row) { return /^M\d+S$/.test(String(row.encounter)); }) },
+        { label: "Current Ultimate", layout: "acr-single-tile", rows: state.data.summary.filter(function(row) { return row.encounter === "FRU"; }) },
+        { label: "Past Ultimates", rows: state.data.summary.filter(function(row) { return ["UCOB", "UWU", "TEA", "DSR", "TOP"].indexOf(row.encounter) !== -1; }) }
       ];
 
-      summaryGrid.innerHTML = groups.map((group) => `
-        <section class="acr-section">
-          <h2 class="acr-section-title">${escapeHtml(group.label)}</h2>
-          <div class="acr-section-rule"></div>
-          <div class="acr-grid ${escapeHtml(group.layout || "")}">
-            ${group.rows.map(renderFightCard).join("")}
-          </div>
-        </section>
-      `).join("");
+      summaryGrid.innerHTML = groups.map(function(group) {
+        return '' +
+          '<section class="acr-section">' +
+            '<h2 class="acr-section-title">' + escapeHtml(group.label) + '</h2>' +
+            '<div class="acr-section-rule"></div>' +
+            '<div class="acr-grid ' + escapeHtml(group.layout || "") + '">' +
+              group.rows.map(renderFightCard).join("") +
+            '</div>' +
+          '</section>';
+      }).join("");
     }
 
     function renderFightCard(row) {
-      const clears = Number(row.clears || 0);
-      const rosterSize = Number(row.rosterSize || 0);
-      const thumbnail = thumbnailUrl(row.encounter);
-      return `
-        <article class="acr-card" style="--boss-image: url('${escapeHtml(thumbnail)}')">
-          <h3 class="acr-card-title">${escapeHtml(row.encounter)}</h3>
-          <div class="acr-rate">${formatWholePercent(clears, rosterSize)}</div>
-          <div class="acr-count">${clears} / ${rosterSize}</div>
-        </article>
-      `;
+      var clears = Number(row.clears || 0);
+      var rosterSize = Number(row.rosterSize || 0);
+      var thumbnail = thumbnailUrl(row.encounter);
+      return '' +
+        '<article class="acr-card" style="--boss-image: url(' + escapeHtml(thumbnail) + ')">' +
+          '<h3 class="acr-card-title">' + escapeHtml(row.encounter) + '</h3>' +
+          '<div class="acr-rate">' + formatWholePercent(clears, rosterSize) + '</div>' +
+          '<div class="acr-count">' + clears + ' / ' + rosterSize + '</div>' +
+        '</article>';
     }
 
     function formatWholePercent(clears, rosterSize) {
@@ -312,7 +350,7 @@
     }
 
     function escapeHtml(value) {
-      return String(value ?? "")
+      return String(value == null ? "" : value)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -320,6 +358,6 @@
         .replace(/'/g, "&#039;");
     }
 
-    loadDashboard();
+    window.setTimeout(loadDashboard, 0);
   })();
 </script>
