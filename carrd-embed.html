@@ -44,7 +44,7 @@
   #across-clear-rates-embed .acr-status {
     margin: 0 0 14px;
     color: var(--acr-muted);
-    text-align: right;
+    text-align: center;
     font-size: 0.9rem;
     line-height: 1.4;
   }
@@ -57,11 +57,12 @@
   }
 
   #across-clear-rates-embed .acr-grid.acr-single-tile {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(190px, 1fr));
   }
 
-  #across-clear-rates-embed .acr-grid.acr-single-tile .acr-card {
-    min-height: 180px;
+  #across-clear-rates-embed .acr-grid.acr-single-tile .acr-card:only-child {
+    grid-column: 1;
+    width: 100%;
   }
 
   #across-clear-rates-embed .acr-section {
@@ -147,7 +148,13 @@
 
   @media (max-width: 800px) {
     #across-clear-rates-embed .acr-status {
-      text-align: left;
+      text-align: center;
+    }
+  }
+
+  @media (max-width: 520px) {
+    #across-clear-rates-embed .acr-grid.acr-single-tile {
+      grid-template-columns: 1fr;
     }
   }
 </style>
